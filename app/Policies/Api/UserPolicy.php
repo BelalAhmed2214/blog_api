@@ -5,12 +5,11 @@ namespace App\Policies\Api;
 use App\Models\Role;
 use App\Models\User;
 
-class PostPolicy
+class UserPolicy
 {
-    public function view_any(User $user)
+    public function view(User $user)
     {
-        return in_array($user->role_id, [Role::IS_ADMIN, Role::IS_EDITOR, Role::IS_USER]);
-
+        return $user->role_id === Role::IS_ADMIN;
     }
     public function modify(User $user)
     {

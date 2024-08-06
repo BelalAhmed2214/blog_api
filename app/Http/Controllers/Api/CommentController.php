@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Comment;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreCommentRequest;
 use App\Http\Requests\Api\UpdateCommentRequest;
-use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\CommentResource;
+use App\Models\Comment;
 use App\Models\Post;
 use App\Traits\ResponseTrait;
 use Illuminate\Support\Facades\Auth;
-use PDO;
 
 class CommentController extends Controller
 {
@@ -19,8 +18,8 @@ class CommentController extends Controller
     /**
      * Display a listing of the resource.
      */
-    
-     /**
+
+    /**
      * @OA\Get(
      *     path="/api/comments",
      *     summary="Get all comments",
@@ -30,16 +29,16 @@ class CommentController extends Controller
      *     security={{"bearerAuth":{}}}
      * )
      */
-     public function index()
+    public function index()
     {
-        $this->authorize('view',Comment::class);
-        $comments = Comment::with('post','user')->paginate(10);
-        if($comments->isEmpty()){
+        $this->authorize('view_any', Comment::class);
+        $comments = Comment::with('post', 'user')->paginate(10);
+        if ($comments->isEmpty()) {
             return $this->returnError('Comments is Empty');
         }
         $data['comments'] = CommentResource::collection($comments);
-        return $this->returnData('data',$data,'comments data');
-       
+        return $this->returnData('data', $data, 'comments data');
+
     }
 
     /**
@@ -65,23 +64,23 @@ class CommentController extends Controller
      */
     public function store(StoreCommentRequest $request)
     {
-        $this->authorize('modify',Comment::class);
+        $this->authorize('modify', Comment::class);
 
-        $post = Post::where('id',$request->post_id)->exists();
+        $post = Post::where('id', $request->post_id)->exists();
         $comment = new Comment();
         $comment->comment = $request->comment;
-        if(!$post){
+        if (!$post) {
             return $this->returnError("Post Not Found");
         }
-       
+
         $comment->post_id = $request->post_id;
         $comment->user_id = auth()->user()->id;
-        if(!$comment){
+        if (!$comment) {
             return $this->returnError("Not Found");
         }
         $comment->save();
-        return $this->returnData('comment',new CommentResource($comment),'Comment has been created');
-        
+        return $this->returnData('comment', new CommentResource($comment), 'Comment has been created');
+
     }
 
     /**
@@ -105,15 +104,13 @@ class CommentController extends Controller
      */
     public function show(Comment $comment)
     {
-        $this->authorize('view',Comment::class);
+        $this->authorize('view_any', Comment::class);
 
-        if(!$comment){
+        if (!$comment) {
             return $this->returnError('Not Found');
         }
-        return $this->returnData('comment',new CommentResource($comment),'Comment Data');
+        return $this->returnData('comment', new CommentResource($comment), 'Comment Data');
     }
-
- 
 
     /**
      * Update the specified resource in storage.
@@ -144,13 +141,13 @@ class CommentController extends Controller
 
     public function update(UpdateCommentRequest $request, Comment $comment)
     {
-        $this->authorize('modify',Comment::class);
+        $this->authorize('modify', Comment::class);
 
         $comment->comment = $request->comment;
-        if(!$comment){
+        if (!$comment) {
             return $this->returnError('Not Found');
         }
-        return $this->returnData('comment',new CommentResource($comment),'Comment has been updated');
+        return $this->returnData('comment', new CommentResource($comment), 'Comment has been updated');
 
     }
 
@@ -177,13 +174,13 @@ class CommentController extends Controller
 
     public function destroy(Comment $comment)
     {
-        $this->authorize('delete',Comment::class);
+        $this->authorize('delete', Comment::class);
 
-        if(!$comment){
+        if (!$comment) {
             return $this->returnError('Not Found');
         }
         $comment->delete();
-        return $this->returnData('comment',new CommentResource($comment),'Comment has been deleted');
+        return $this->returnData('comment', new CommentResource($comment), 'Comment has been deleted');
     }
     /**
      * @OA\Get(
@@ -195,16 +192,17 @@ class CommentController extends Controller
      *     security={{"bearerAuth":{}}}
      * )
      */
-    public function deleted(){
-        $this->authorize('delete',Comment::class);
+    public function deleted()
+    {
+        $this->authorize('delete', Comment::class);
 
         $deletedComments = Comment::with('post')->onlyTrashed()->get();
-        if($deletedComments->isEmpty()){
+        if ($deletedComments->isEmpty()) {
             return $this->returnError('No Deleted Comments');
         }
         $data['deletedComments'] = CommentResource::collection($deletedComments);
-        
-        return $this->returnData('data',$data,'Deleted Comments');
+
+        return $this->returnData('data', $data, 'Deleted Comments');
     }
     /**
      * @OA\Post(
@@ -222,17 +220,18 @@ class CommentController extends Controller
      *     security={{"bearerAuth":{}}}
      * )
      */
-    public function restore($comment_id){
-        $this->authorize('delete',Comment::class);
+    public function restore($comment_id)
+    {
+        $this->authorize('delete', Comment::class);
 
-        $comment = Comment::with('post')->withTrashed()->where('id',$comment_id)->whereNotNull('deleted_at')->first();
-        if(!$comment){
+        $comment = Comment::with('post')->withTrashed()->where('id', $comment_id)->whereNotNull('deleted_at')->first();
+        if (!$comment) {
             return $this->returnError("The comment is not deleted");
 
         }
-     
+
         $comment->restore();
-        return $this->returnData('comment',new CommentResource($comment),'Comment Restored');
+        return $this->returnData('comment', new CommentResource($comment), 'Comment Restored');
     }
 
     /**
@@ -251,15 +250,16 @@ class CommentController extends Controller
      *     security={{"bearerAuth":{}}}
      * )
      */
-    public function forceDelete($comment_id){
-        $this->authorize('delete',Comment::class);
+    public function forceDelete($comment_id)
+    {
+        $this->authorize('delete', Comment::class);
 
-        $comment = Comment::with('post')->withTrashed()->where('id',$comment_id)->whereNotNull('deleted_at')->first();
-        if(!$comment){
+        $comment = Comment::with('post')->withTrashed()->where('id', $comment_id)->whereNotNull('deleted_at')->first();
+        if (!$comment) {
             return $this->returnError("Not Found");
 
-        }     
+        }
         $comment->forceDelete();
-        return $this->returnData('comment',new CommentResource($comment),'Comment Permanently Deleted');
+        return $this->returnData('comment', new CommentResource($comment), 'Comment Permanently Deleted');
     }
 }

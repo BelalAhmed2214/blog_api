@@ -7,16 +7,14 @@ use App\Http\Requests\Api\StorePostRequest;
 use App\Http\Requests\Api\UpdatePostRequest;
 use App\Http\Resources\Api\PostResource;
 use App\Models\Post;
-use App\Models\User;
 use App\Traits\ResponseTrait;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+
 class PostController extends Controller
 {
     use ResponseTrait;
 
-
-   
     /**
      * @OA\Get(
      *     path="/api/posts",
@@ -29,10 +27,10 @@ class PostController extends Controller
      */
     public function index()
     {
-        $this->authorize('view', Post::class);
+        $this->authorize('view_any', Post::class);
         //Retrieving Posts
         $posts = Post::with('user')->latest('id')->get();
-        if($posts->isEmpty()){
+        if ($posts->isEmpty()) {
             return $this->returnError('No posts found');
         }
         $data['posts'] = PostResource::collection($posts);
@@ -72,7 +70,8 @@ class PostController extends Controller
      */
     public function store(StorePostRequest $request)
     {
-        $this->authorize('modify',Post::class);
+        $this->authorize('modify', Post::class);
+
         $validated = $request->validated();
         $post = new Post();
         $post->title = $validated['title'];
@@ -102,7 +101,7 @@ class PostController extends Controller
      */
     public function show(Post $post)
     {
-        $this->authorize('view',Post::class);
+        $this->authorize('view_any', Post::class);
         return $this->returnData("post", new PostResource($post), "Post Data");
     }
 
@@ -145,7 +144,7 @@ class PostController extends Controller
      */
     public function update(UpdatePostRequest $request, Post $post)
     {
-        $this->authorize('modify',Post::class);
+        $this->authorize('modify', Post::class);
 
         $validated = $request->validated();
         $post->title = $validated['title'];
@@ -174,7 +173,7 @@ class PostController extends Controller
      */
     public function destroy(Post $post)
     {
-        $this->authorize('delete',Post::class);
+        $this->authorize('delete', Post::class);
         $post->delete();
         return $this->returnData('post', new PostResource($post), 'Post has been deleted');
     }
@@ -191,7 +190,7 @@ class PostController extends Controller
      */
     public function deleted()
     {
-        $this->authorize('delete',Post::class);
+        $this->authorize('delete', Post::class);
 
         $deletedPosts = Post::onlyTrashed()->get();
         if ($deletedPosts->isEmpty()) {
@@ -220,7 +219,7 @@ class PostController extends Controller
      */
     public function restore($post_id)
     {
-        $this->authorize('delete',Post::class);
+        $this->authorize('delete', Post::class);
 
         $post = Post::withTrashed()->where('id', $post_id)->whereNotNull('deleted_at')->first();
         if (!$post) {
@@ -249,7 +248,7 @@ class PostController extends Controller
      */
     public function forceDelete($post_id)
     {
-        $this->authorize('delete',Post::class);
+        $this->authorize('delete', Post::class);
 
         $post = Post::withTrashed()->where('id', $post_id)->whereNotNull('deleted_at')->first();
         if (!$post) {
@@ -278,18 +277,19 @@ class PostController extends Controller
      *     security={{"bearerAuth":{}}}
      * )
      */
-    public function searchByTitle(Request $request){
-        $this->authorize('view', Post::class);
+    public function searchByTitle(Request $request)
+    {
+        $this->authorize('view_any', Post::class);
 
-        $this->validate($request,[
-            "search" => ['required','string']
+        $this->validate($request, [
+            "search" => ['required', 'string'],
         ]);
         $search = $request->search;
         $results = Post::where('title', 'like', "%$search%")->get();
-        if($results->isEmpty()){
+        if ($results->isEmpty()) {
             return $this->returnError('No data matches');
         }
-        return $this->returnData('results',$results,'Matched Data');
+        return $this->returnData('results', $results, 'Matched Data');
     }
 
     /**
@@ -316,62 +316,61 @@ class PostController extends Controller
      *     security={{"bearerAuth":{}}}
      * )
      */
-    public function filteringSortingPosts(Request $request){
-        
-        $this->authorize('view', Post::class);
+    public function filteringSortingPosts(Request $request)
+    {
+
+        $this->authorize('view_any', Post::class);
         //Filtering posts
         $filters = $request->validate([
             'from_date' => 'nullable|date_format:d-m-Y',
             'to_date' => 'nullable|date_format:d-m-Y',
             'is_active' => 'nullable|boolean',
             'sort_by' => 'nullable|in:created_at,is_active',
-            'sort_direction' => 'nullable|in:asc,desc'
+            'sort_direction' => 'nullable|in:asc,desc',
         ]);
 
-        $is_active = (int)$request->is_active;
-        if($request->has('from_date')&& $request->has('to_date')){
+        $is_active = (int) $request->is_active;
+        if ($request->has('from_date') && $request->has('to_date')) {
 
             $filters['from_date'] = $request->from_date;
             $filters['to_date'] = $request->to_date;
-        } 
-        if($request->has('is_active')){
+        }
+        if ($request->has('is_active')) {
             $filters['is_active'] = $is_active;
         }
-        if($request->has('sort_by')){
+        if ($request->has('sort_by')) {
             $filters['sort_by'] = $request->sort_by;
             $filters['sort_direction'] = $request->input('sort_direction');
-            
+
         }
-        
+
         //apply filters
         $query = Post::query();
         if (!empty($filters['from_date']) && !empty($filters['to_date'])) {
             // dd($filters['from_date']);
 
-            $startDate = Carbon::createFromFormat('d-m-Y',$filters['from_date'])->startOfDay();
-            $endDate = Carbon::createFromFormat('d-m-Y',$filters['to_date'])->endOfDay();
-            if($endDate<$startDate){
+            $startDate = Carbon::createFromFormat('d-m-Y', $filters['from_date'])->startOfDay();
+            $endDate = Carbon::createFromFormat('d-m-Y', $filters['to_date'])->endOfDay();
+            if ($endDate < $startDate) {
                 return $this->returnError("Out Of date");
             }
-            $query->whereBetween('created_at',[$startDate,$endDate]);
+            $query->whereBetween('created_at', [$startDate, $endDate]);
         }
         // dd($filters);
         if (isset($filters['is_active'])) {
-            $query->where('is_active','=',$filters['is_active']);
+            $query->where('is_active', '=', $filters['is_active']);
         }
-        
-        
+
         if (!empty($filters['sort_by'])) {
             $sortField = $filters['sort_by'];
-            $sortDirection = $filters['sort_direction']??'asc';
-            if(in_array($sortField,['created_at','is_active']) && in_array($sortDirection,['asc','desc'])){
-                $query->orderBy($sortField,$sortDirection);
-            }
-            else{
-                $query->orderBy('id','asc');
+            $sortDirection = $filters['sort_direction'] ?? 'asc';
+            if (in_array($sortField, ['created_at', 'is_active']) && in_array($sortDirection, ['asc', 'desc'])) {
+                $query->orderBy($sortField, $sortDirection);
+            } else {
+                $query->orderBy('id', 'asc');
             }
         }
-        
+
         //Retrieving Posts
         $posts = $query->get();
         $data['posts'] = PostResource::collection($posts);

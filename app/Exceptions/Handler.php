@@ -3,15 +3,15 @@
 namespace App\Exceptions;
 
 use App\Traits\ResponseTrait;
-use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
-use Throwable;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Http\Response;
-use Illuminate\Database\RecordsNotFoundException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Http\Response;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
+
 class Handler extends ExceptionHandler
 {
     use ResponseTrait;
@@ -37,27 +37,27 @@ class Handler extends ExceptionHandler
     }
     public function render($request, Throwable $exception)
     {
-        if ($exception instanceof ModelNotFoundException ||$exception instanceof NotFoundHttpException) {
-            return $this->returnError('Not Found');
+        if ($exception instanceof NotFoundHttpException) {
+            return $this->returnError('Link Not Found');
         }
+        if ($exception instanceof ModelNotFoundException) {
+            return $this->returnError('Model Not Found');
 
-        // if ($exception instanceof AccessDeniedHttpException) {
-        //     return response()->json(['result'=>'false','message'=>'This action is unauthorized'],Response::HTTP_FORBIDDEN);
-        // }
-        if ($exception instanceof AccessDeniedHttpException) {
-                dd($exception->getMessage());
-                return $this->returnError('This action is unauthorized','403');
         }
-        if($exception instanceof MethodNotAllowedHttpException ){
-            return response()->json(['result'=>'false','message'=>'Method Not Allowed'],Response::HTTP_METHOD_NOT_ALLOWED);
+        //unauthorized
+        if ($exception instanceof AuthorizationException) {
+            return $this->returnError('You are unauthorized', Response::HTTP_FORBIDDEN);
+        }
+        if ($exception instanceof MethodNotAllowedHttpException) {
+            return $this->returnError('Method Not Allowed', Response::HTTP_METHOD_NOT_ALLOWED);
 
         }
         // Unauthenticated
         if ($exception instanceof AuthenticationException) {
-            return response()->json(['result'=>'false','message'=>'You Are Unauthenticated'],Response::HTTP_UNAUTHORIZED);
+            return $this->returnError('You are unauthenticated', Response::HTTP_UNAUTHORIZED);
 
         }
-        
+
         return parent::render($request, $exception);
     }
 }
